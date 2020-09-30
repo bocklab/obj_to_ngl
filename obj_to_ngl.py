@@ -4,6 +4,7 @@
 
 import argparse
 import trimesh
+import numpy as np
 import os
 import json
 
@@ -16,7 +17,8 @@ def main():
     parser.add_argument("cvpath", help="Path to precomputed volume to create")
     parser.add_argument("meshes", nargs="+", help="Mesh files to convert")
     parser.add_argument("--initial-id", default=1, type=int, help="Initial ID for meshes")
-    parser.add_argument("--volume-size", nargs=3, default=[248832, 134144, 7063], help="Extent of segmentation")
+    parser.add_argument("--resolution", nargs=3, default=[4,4,40], help="Voxel resolution (full res)")
+    parser.add_argument("--volume-size", nargs=3, default=[248832, 134144, 7063], help="Extent of segmentation (full res)")
     args = parser.parse_args()
 
     cvpath = args.cvpath
@@ -24,6 +26,11 @@ def main():
     seg_props_path = os.path.join(cvpath, "seg_props")
     os.makedirs(mesh_path, exist_ok=True)
     os.makedirs(seg_props_path, exist_ok=True)
+
+    
+    # Convert the entire space into units of "one entire brain" in case neuroglancer tries to load the image layer
+    resolution = np.asarray(args.resolution) * np.asarray(args.volume_size)
+    size = np.asarray([1,1,1])
 
     with open(os.path.join(cvpath, "info"), "w") as f:
         info = {
@@ -33,9 +40,9 @@ def main():
                     "key" : "fake",
                     "encoding" : "raw",
                     "voxel_offset": [0,0,0],
-                    "resolution": [4,4,40],
-                    "size": [248832, 134144, 7063],
-                    "chunk_sizes": [[512, 512, 16]]
+                    "resolution": resolution.tolist(),
+                    "size": size.tolist(),
+                    "chunk_sizes": [[256, 256, 16]]
                 }
             ],
             "mesh": "mesh",

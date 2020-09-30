@@ -16,11 +16,14 @@ def main():
     parser.add_argument("cvpath", help="Path to precomputed volume to create")
     parser.add_argument("meshes", nargs="+", help="Mesh files to convert")
     parser.add_argument("--initial-id", default=1, type=int, help="Initial ID for meshes")
+    parser.add_argument("--volume-size", nargs=3, default=[248832, 134144, 7063], help="Extent of segmentation")
     args = parser.parse_args()
 
     cvpath = args.cvpath
     mesh_path = os.path.join(cvpath, "mesh")
+    seg_props_path = os.path.join(cvpath, "seg_props")
     os.makedirs(mesh_path, exist_ok=True)
+    os.makedirs(seg_props_path, exist_ok=True)
 
     with open(os.path.join(cvpath, "info"), "w") as f:
         info = {
@@ -31,11 +34,12 @@ def main():
                     "encoding" : "raw",
                     "voxel_offset": [0,0,0],
                     "resolution": [4,4,40],
-                    "size": [ 248832, 134144, 7063 ],
+                    "size": [248832, 134144, 7063],
                     "chunk_sizes": [[512, 512, 16]]
                 }
             ],
             "mesh": "mesh",
+            "segment_properties" : "seg_props",
             "type": "segmentation",
             "num_channels": 1
         }
@@ -44,6 +48,20 @@ def main():
     with open(os.path.join(mesh_path, "info"), "w") as f:
         info = {"@type" : "neuroglancer_legacy_mesh"}
         f.write(json.dumps(info))
+
+    segment_props = {
+        "@type" : "neuroglancer_segment_properties",
+        'inline' : {
+            'ids' : [],
+            'properties' : [
+                {
+                    "id" : "source",
+                    "type" : "label",
+                    "values" : []
+                }
+            ]
+        }
+    }
 
     mesh_id = args.initial_id
     for meshfile in args.meshes:
@@ -62,9 +80,13 @@ def main():
         with open(os.path.join(mesh_path, ngl_mesh_file), "wb") as f:
             f.write(cv_mesh.to_precomputed())
 
-        print(cv_mesh)
-
+        segment_props['inline']['ids'].append(f'{mesh_id}')
+        segment_props['inline']['properties'][0]['values'].append(os.path.basename(meshfile))
         mesh_id += 1
+
+
+    with open(os.path.join(seg_props_path, "info"), "w") as f:
+        f.write(json.dumps(segment_props))        
 
 if __name__ == "__main__":
     main()
